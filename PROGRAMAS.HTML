@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programas - Aprende Automatización</title>
+    
+    <!-- LIBRERÍAS Y FUENTES -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Configuración Tailwind global -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1877f2', // fb-blue
+                        secondary: '#2db8ce', // celeste
+                        dark: '#0f172a', // azul-oscuro
+                        accent: '#91a1af', // azul-gris
+                        light: '#f8fafc', // fondo general claro
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --azul-gris: #91a1af;
+            --azul-oscuro: #0f172a;
+            --celeste: #2db8ce;
+            --fb-blue: #1877f2;
+        }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--azul-gris);
+            margin: 0;
+            padding: 0;
+            color: #1e293b;
+            scroll-behavior: smooth;
+        }
+
+        /* --- ANIMACIONES Y EFECTOS --- */
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        #notification {
+            position: fixed; top: 20px; right: 20px; transform: translateX(120%);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); z-index: 100000;
+        }
+        #notification.show { transform: translateX(0); }
+        
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px);
+            z-index: 99999; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: white; border-radius: 32px; width: 90%; max-width: 420px; padding: 0px;
+            transform: translateY(30px) scale(0.95); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); max-height: 90vh; overflow-y: auto;
+        }
+
+        .page-content { display: none; min-height: 100vh; }
+        .page-content.active { display: block; }
+
+        #page-programas {
+            position: relative; background-color: #91a1af;
+        }
+        #page-programas::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://i.postimg.cc/SNWLCNbX/1772328879494-bca82d31-5fe5-4f29-86e0-d5044a177447.jpg');
+            background-size: cover; background-position: center; background-attachment: fixed; opacity: 0.15; z-index: 0;
+        }
+    </style>
+</head>
+<body class="custom-scrollbar">
+
+<!-- NOTIFICACIÓN -->
+<div id="notification" class="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-white/20">
+    <i id="notifIcon" class="fas fa-info-circle text-2xl"></i>
+    <div>
+        <p id="notifTitle" class="font-bold text-sm leading-none mb-1">Notificación</p>
+        <p id="notifMsg" class="text-[10px] opacity-90">Mensaje informativo.</p>
+    </div>
+</div>
+
+<!-- MODAL AUTENTICACIÓN UNIFICADO -->
+<div id="authModal" class="modal-overlay">
+    <div class="modal-content !p-8 relative">
+        <button onclick="closeModal('authModal')" class="absolute top-5 right-5 text-slate-400 hover:text-red-500 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        <div class="text-center mb-6">
+            <img src="https://i.postimg.cc/V64qYmsp/web-1.png" alt="Logo" class="h-10 mx-auto mb-3">
+            <h3 class="text-2xl font-black text-slate-900 uppercase tracking-tighter" id="authModalTitle">Iniciar Sesión</h3>
+            <p class="text-xs text-slate-500 mt-2" id="authSubText">Ingresa tus datos para acceder o verificar tus cursos.</p>
+        </div>
+        
+        <!-- Mensaje de Error -->
+        <div id="authErrorMessage" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center gap-3 text-xs font-bold shadow-sm slide-up text-left">
+            <i class="fas fa-exclamation-circle text-lg flex-shrink-0"></i>
+            <span id="authErrorText" class="leading-tight">Mensaje de error</span>
+        </div>
+
+        <div class="flex bg-slate-100 rounded-xl p-1 mb-6">
+            <button onclick="switchAuthTab('login')" id="tabLogin" class="flex-1 py-2 text-sm font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-all">Ingresar</button>
+            <button onclick="switchAuthTab('register')" id="tabRegister" class="flex-1 py-2 text-sm font-bold rounded-lg text-slate-500 hover:text-slate-700 transition-all">Crear Cuenta</button>
+        </div>
+        
+        <form id="authForm" class="space-y-4 text-left">
+            <div id="nameField" class="space-y-1 hidden">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Nombre Completo</label>
+                <div class="relative"><i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i><input type="text" id="authName" placeholder="Tu Nombre y Apellido" class="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 outline-none text-sm font-medium"></div>
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Correo</label>
+                <div class="relative"><i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i><input type="email" id="authEmail" required placeholder="tu@email.com" class="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 outline-none text-sm font-medium"></div>
+            </div>
+            <div class="space-y-1" id="passwordFieldContainer">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Contraseña</label>
+                <div class="relative"><i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i><input type="password" id="authPassword" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 outline-none text-sm font-medium"></div>
+            </div>
+            <button type="submit" id="authSubmitBtn" class="w-full bg-[#0f172a] hover:bg-[#2db8ce] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 transition-all shadow-lg flex items-center justify-center gap-2">
+                <i class="fas fa-sign-in-alt" id="authBtnIcon"></i> <span id="authBtnLabel">Entrar</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SECCIÓN: PROGRAMAS (DESCARGAS)             -->
+<!-- ========================================== -->
+<div id="page-programas" class="page-content active text-slate-900 font-sans flex flex-col">
+    <!-- BARRA SUPERIOR SIMPLIFICADA PARA LOGIN/LOGOUT -->
+    <div class="relative z-20 bg-dark text-white py-3 px-6 flex justify-between items-center border-b border-white/10 shadow-md">
+        <div class="flex items-center gap-2">
+            <img src="https://i.postimg.cc/V64qYmsp/web-1.png" alt="Logo" class="h-6 w-auto">
+            <span class="font-black text-white uppercase tracking-tighter text-xs sm:text-sm">APRENDE <span class="text-[#2db8ce]">AUTOMATIZACIÓN</span></span>
+        </div>
+        <div id="userTopMenu">
+            <!-- Inyectado por JS -->
+        </div>
+    </div>
+
+    <header class="relative bg-dark text-white py-16 md:py-24 overflow-hidden shadow-lg">
+        <div class="absolute inset-0 z-0 bg-dark"><img src="https://i.postimg.cc/WpST30hz/tablerogif.gif" class="w-full h-full object-cover opacity-30 mix-blend-luminosity"></div>
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-4">
+            <h1 class="text-3xl md:text-5xl font-extrabold mb-4 flex items-center justify-center gap-3 drop-shadow-lg text-white uppercase tracking-tighter">
+                <i data-lucide="download-cloud" class="w-10 h-10 md:w-12 md:h-12 text-secondary"></i> PROGRAMAS
+            </h1>
+            <p class="text-lg md:text-xl text-blue-50 max-w-2xl mx-auto drop-shadow-md font-medium">Descarga los simuladores y programas de automatización que utilizaremos.</p>
+        </div>
+    </header>
+
+    <main class="relative z-10 flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Columna Izquierda: Buscador y Cuadrícula -->
+            <div class="flex-1 w-full order-2 lg:order-1">
+                <div class="mb-10 relative max-w-md mx-auto md:mx-0">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i data-lucide="search" class="text-accent w-5 h-5"></i></div>
+                    <input type="text" id="searchProgramInput" class="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#2db8ce] outline-none shadow-sm" placeholder="Buscar programa..." onkeyup="filterPrograms()">
+                </div>
+                <div id="programsGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mb-20 text-left"></div>
+                <div id="noResultsProgramas" class="hidden text-center py-12"><i data-lucide="package-open" class="mx-auto w-16 h-16 text-dark mb-4"></i><h3 class="text-lg font-medium text-dark">No se encontraron programas</h3></div>
+            </div>
+            
+            <!-- Columna Derecha: Datos de Usuario y Profesor -->
+            <div class="w-full lg:w-[320px] flex-shrink-0 order-1 lg:order-2">
+                <div id="pageRightSidebar" class="sticky top-6 z-20">
+                    <!-- Contenido inyectado por JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ========================================== -->
+<!-- FOOTER                                     -->
+<!-- ========================================== -->
+<footer class="bg-[#0f172a] py-12 px-6 text-center border-t border-white/5 relative z-20">
+    <div class="max-w-7xl mx-auto flex flex-col items-center gap-6">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})"><img src="https://i.postimg.cc/V64qYmsp/web-1.png" class="h-8 w-auto"><span class="font-bold text-white uppercase text-xl">Aprende<span class="text-[#2db8ce]">Automatización</span></span></div>
+        <p class="text-slate-500 text-[10px] italic font-medium tracking-wide uppercase">© 2026 Aprende Automatización. Todos los derechos reservados.</p>
+        
+        <div id="adminButtonContainer" class="hidden mt-4 pt-4 border-t border-white/10 w-full md:w-1/2 flex justify-center">
+            <button class="text-slate-500 hover:text-[#2db8ce] transition-colors text-[10px] flex items-center gap-2 font-black tracking-widest uppercase py-2 px-4 rounded-lg hover:bg-white/5">
+                <i class="fas fa-shield-alt"></i> Administrar Cursos
+            </button>
+        </div>
+    </div>
+</footer>
+
+<!-- Contenedor de Notificaciones Nativas -->
+<div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+<script>
+    // ==========================================
+    // VARIABLES GLOBALES Y CONEXIÓN A GOOGLE SHEETS
+    // ==========================================
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWSvXA_dAY5n0aN7sgmiR3fhCSu5Y2PY3alBS6wsXTApjk0adoj_Vi4tnT1bCnCRtn/exec';
+    
+    let currentUser = JSON.parse(localStorage.getItem('user')) || null;
+    let dbUsers = {}, globalStats = {}, dbUserCourses = {}, dbUserDetails = {}; 
+    let programCounts = {}; 
+    let userCountry = "Desconocido";
+
+    // DATOS DE PROGRAMAS PARA DESCARGA
+    const DESCARGAS_PROGRAMAS = [
+        { id: 1, name: "CadeSimu", version: "V4.0", size: "15 MB", desc: "Simulador de esquemas eléctricos, control y automatismos.", image: "https://i.postimg.cc/fRtdQ3Vh/1.jpg", link: "https://drive.google.com/file/d/1IxgxpS-7bTjni3EDKyiUEPIVY6Ivreyu/view?usp=drive_link" },
+        { id: 2, name: "PCSimu", version: "V3.0", size: "12 MB", desc: "Simulador de processes automáticos.", image: "https://i.postimg.cc/8zJvgF7g/2.jpg", link: "https://drive.google.com/file/d/1vEcFNjzSWTpLv0XpsA3EOEwUas9WOoIj/view?usp=drive_link" },
+        { id: 3, name: "LogoSoft Comfort V7", version: "V7.0", size: "120 MB", desc: "Software de programación para autómatas Siemens LOGO!.", image: "https://i.postimg.cc/Qxn7zgdx/3.jpg", link: "https://drive.google.com/file/d/1k3ZF1ijVJsUxAYZomv43Z0nHcd89dYMC/view?usp=drive_link" },
+        { id: 4, name: "LogoSoft Comfort V8.3", version: "64-bit", size: "1.4 GB", desc: "Versión moderna de LogoSoft para 64 bits.", image: "https://i.postimg.cc/L60PWk82/6.jpg", link: "https://drive.google.com/file/d/1H-cfWhTuRzkqOXyEHVfQX6liKml_Xmn9/view?usp=drive_link" },
+        { id: 5, name: "LogoSoft Comfort V8.3", version: "32-bit", size: "1.2 GB", desc: "Versión moderna de LogoSoft para 32 bits.", image: "https://i.postimg.cc/L60PWk82/6.jpg", link: "https://drive.google.com/file/d/1zay9zFQLyFgtrgIid0khNe1VeptRWRvw/view?usp=descargas" },
+        { id: 6, name: "Factory I/O", version: "V2.5", size: "900 MB", desc: "Simulador de fábrica 3D inmersivo.", image: "https://i.postimg.cc/PNtkzv0W/image.jpg", link: "https://drive.google.com/file/d/1OuUk0HWR8LUQ5X24LxseggiuTFzrfLJK/view?usp=sharing" },
+        { id: 7, name: "Step 7 MicroWin", version: "V4.0 SP9", size: "450 MB", desc: "Entorno de programación para Siemens S7-200.", image: "https://i.postimg.cc/c453z7Lx/4.jpg", link: "https://drive.google.com/file/d/1X2ak3unU9KrGb_dtg28huWJLvnuWuqE2/view?usp=drive_link" },
+        { id: 8, name: "Simulador S7-200", version: "V3.0", size: "5 MB", desc: "Simulación virtual de PLC Siemens S7-200.", image: "https://i.postimg.cc/pTGVdZS0/7.jpg", link: "https://drive.google.com/file/d/1iVZQeWNoLRX-U_mltyrCgyScpFIoejpr/view?usp=drive_link" },
+        { id: 9, name: "Festo FluidSIM", version: "V5.0", size: "350 MB", desc: "Simulador de neumática e hidráulica.", image: "https://i.postimg.cc/9FN9kPQX/5.jpg", link: "https://drive.google.com/file/d/1kQF89d7vhczaz5Y7B3U1ow5bNgjReIz4/view?usp=drive_link" }
+    ];
+
+    const countryToISO = { "venezuela": "ve", "colombia": "co", "méxico": "mx", "mexico": "mx", "españa": "es", "spain": "es", "argentina": "ar", "perú": "pe", "peru": "pe", "chile": "cl", "ecuador": "ec" };
+    const countryToSpanish = { "venezuela": "Venezuela", "colombia": "Colombia", "mexico": "México", "méxico": "México", "spain": "España", "españa": "España", "argentina": "Argentina", "peru": "Perú", "perú": "Perú", "chile": "Chile", "ecuador": "Ecuador" };
+
+    function getFlagEmoji(countryName) {
+        const name = countryName.toLowerCase();
+        if (name.includes('venezuela')) return '🇻🇪';
+        if (name.includes('colombia')) return '🇨🇴';
+        if (name.includes('mexico') || name.includes('méxico')) return '🇲🇽';
+        if (name.includes('españa') || name.includes('spain')) return '🇪🇸';
+        if (name.includes('argentina')) return '🇦🇷';
+        if (name.includes('peru') || name.includes('perú')) return '🇵🇪';
+        if (name.includes('chile')) return '🇨🇱';
+        if (name.includes('ecuador')) return '🇪🇨';
+        if (name.includes('bolivia')) return '🇧🇴';
+        if (name.includes('paraguay')) return '🇵🇾';
+        if (name.includes('uruguay')) return '🇺🇾';
+        if (name.includes('costa rica')) return '🇨🇷';
+        if (name.includes('panama') || name.includes('panamá')) return '🇵🇦';
+        if (name.includes('republica dominicana') || name.includes('república')) return '🇩🇴';
+        if (name.includes('guatemala')) return '🇬🇹';
+        if (name.includes('honduras')) return '🇭🇳';
+        if (name.includes('el salvador')) return '🇸🇻';
+        if (name.includes('nicaragua')) return '🇳🇮';
+        if (name.includes('estados unidos') || name.includes('usa') || name.includes('united')) return '🇺🇸';
+        return '🌍';
+    }
+
+    // ==========================================
+    // UTILIDADES UI Y NOTIFICACIONES
+    // ==========================================
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    
+    function showNotif(t,m, type = 'success') { 
+        const n = document.getElementById('notification'); const icon = document.getElementById('notifIcon');
+        document.getElementById('notifTitle').innerText = t; document.getElementById('notifMsg').innerText = m; 
+        if (t.toLowerCase().includes('error') || t.toLowerCase().includes('denegado') || type === 'error') { n.classList.remove('bg-emerald-600', 'bg-blue-600'); n.classList.add('bg-red-600'); icon.className = 'fas fa-exclamation-circle text-2xl'; } 
+        else if(type === 'info') { n.classList.remove('bg-emerald-600', 'bg-red-600'); n.classList.add('bg-blue-600'); icon.className = 'fas fa-info-circle text-2xl'; }
+        else { n.classList.remove('bg-red-600', 'bg-blue-600'); n.classList.add('bg-emerald-600'); icon.className = 'fas fa-check-circle text-2xl'; }
+        n.classList.add('show'); setTimeout(() => n.classList.remove('show'), 4000); 
+    }
+
+    function showToastDownload(itemName) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'bg-dark text-white px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 slide-up min-w-[300px] border border-slate-700 pointer-events-auto z-[9999]';
+        toast.innerHTML = `<div class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center animate-pulse"><i data-lucide="arrow-down" class="w-4 h-4 text-white"></i></div><div class="text-left"><h4 class="text-sm font-bold">Descargando</h4><p class="text-xs text-slate-300">${itemName}</p></div>`;
+        container.appendChild(toast); if(window.lucide) lucide.createIcons();
+        setTimeout(() => { toast.style.opacity='0'; setTimeout(()=>toast.remove(), 300); }, 4000);
+    }
+
+    async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+        let delay = 1000;
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (options.mode === 'no-cors') return { status: "sent" };
+                if (response.ok) return response;
+                throw new Error(`Error HTTP: ${response.status}`);
+            } catch (err) {
+                if (i === maxRetries - 1) throw err;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2;
+            }
+        }
+    }
+
+    // ==========================================
+    // LÓGICA DE PROGRAMAS (RENDER Y DESCARGA)
+    // ==========================================
+    function renderPrograms(data) {
+        const programsGrid = document.getElementById('programsGrid');
+        const noResults = document.getElementById('noResultsProgramas');
+        programsGrid.innerHTML = '';
+        
+        if (data.length === 0) { programsGrid.classList.add('hidden'); noResults.classList.remove('hidden'); return; }
+        programsGrid.classList.remove('hidden'); noResults.classList.add('hidden');
+        
+        data.forEach((prog, index) => {
+            const card = document.createElement('div');
+            card.className = `bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col fade-in text-left`;
+            card.style.animationDelay = `${index * 0.05}s`;
+            
+            const btnContent = currentUser ? `<i data-lucide="download" class="w-4 h-4"></i> Descargar Ahora` : `<i data-lucide="lock" class="w-4 h-4 text-secondary"></i> Ingresar para descargar`;
+            
+            // AQUI ESTÁ EL CAMBIO PARA EL BOTÓN VERDE MATE SIN BRILLO
+            const btnClass = currentUser ? `bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 transition-colors` : `bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300`;
+            
+            const displayCount = programCounts[`${prog.name} ${prog.version}`] !== undefined ? programCounts[`${prog.name} ${prog.version}`] : '...';
+
+            // Etiqueta con los datos del usuario (Estado de descarga del programa)
+            const isDownloaded = currentUser && currentUser.downloadedPrograms && currentUser.downloadedPrograms.includes(prog.id);
+            const userStatusTag = isDownloaded ? `<span class="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1" title="Ya has descargado este programa"><i data-lucide="check-circle" class="w-3 h-3"></i> Descargado</span>` : '';
+
+            card.innerHTML = `
+                <div class="aspect-square w-full overflow-hidden bg-slate-100 border-b border-slate-100"><img src="${prog.image}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500"></div>
+                <div class="p-6 flex-grow">
+                    <h2 class="text-xl font-bold text-slate-800 mb-1">${prog.name}</h2>
+                    <div class="flex flex-wrap gap-2 mb-3 text-xs font-bold">
+                        <span class="bg-slate-100 px-2 py-0.5 rounded-full">${prog.version}</span><span class="bg-blue-50 text-primary px-2 py-0.5 rounded-full">${prog.size}</span>
+                        <span class="bg-green-50 text-green-600 border border-green-100 px-2 py-0.5 rounded-full flex items-center gap-1"><i data-lucide="bar-chart-2" class="w-3 h-3"></i><span id="progCount-${prog.id}">${displayCount}</span></span>
+                        ${userStatusTag}
+                    </div>
+                    <p class="text-slate-600 text-sm line-clamp-3">${prog.desc}</p>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100"><button onclick="startDownload('${prog.name} ${prog.version}', '${prog.link}', ${prog.id})" class="w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${btnClass}">${btnContent}</button></div>`;
+            programsGrid.appendChild(card);
+        });
+        if(window.lucide) lucide.createIcons();
+    }
+
+    function filterPrograms() {
+        const query = document.getElementById('searchProgramInput').value.toLowerCase();
+        const filtered = DESCARGAS_PROGRAMAS.filter(prog => prog.name.toLowerCase().includes(query) || prog.desc.toLowerCase().includes(query));
+        renderPrograms(filtered);
+    }
+
+    function startDownload(softwareName, url, progId) {
+        if (!currentUser) { showNotif('Acceso Restringido', 'Debes iniciar sesión para descargar.'); openModal('authModal'); return; }
+        
+        if (!currentUser.downloadedPrograms) currentUser.downloadedPrograms = [];
+        if (!currentUser.downloadedPrograms.includes(progId)) { 
+            currentUser.downloadedPrograms.push(progId); 
+            localStorage.setItem('user', JSON.stringify(currentUser)); 
+            syncUserProgressToExcel(); 
+            updateAllUI(); 
+        }
+
+        if (!url || url.trim() === "") {
+            showNotif('No Disponible', 'Enlace no configurado.', 'info');
+            return;
+        }
+
+        window.open(url, '_blank');
+        showToastDownload(softwareName);
+        
+        // Sumar descarga y registrar en Base de Datos Google
+        if (progId) {
+            programCounts[softwareName] = (parseInt(programCounts[softwareName]) || 0) + 1;
+            const countEl = document.getElementById(`progCount-${progId}`);
+            if (countEl) countEl.innerText = programCounts[softwareName];
+            
+            // REGISTRO EN EXCEL (funcionalidad conservada 100%)
+            fetchWithRetry(`${SCRIPT_URL}?action=record_download&programa=${encodeURIComponent(softwareName)}&pais=${encodeURIComponent(userCountry)}&email=${encodeURIComponent(currentUser.email)}`, { method: 'GET', mode: 'no-cors' });
+        }
+    }
+
+    // ==========================================
+    // AUTENTICACIÓN, CONEXIÓN EXCEL Y ESTADOS UI
+    // ==========================================
+    
+    // 1. Cargar Base de Datos completa desde Excel (Igual que en la versión monolítica)
+    async function loadData() {
+        try {
+            const res = await fetch(`${SCRIPT_URL}?action=get_data&t=${Date.now()}`);
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                dbUsers = data.users || {}; 
+                globalStats = data.stats || {};
+                dbUserCourses = data.userCourses || {};
+                dbUserDetails = data.userDetails || {};
+                
+                // Actualizar contexto si ya hay sesión iniciada
+                if (currentUser && currentUser.email) {
+                    const email = currentUser.email.toLowerCase();
+                    let globalUser = dbUsers[email] || {};
+                    if (typeof globalUser === 'string') { try { globalUser = JSON.parse(globalUser); } catch(e) { globalUser = {}; } }
+                    let details = dbUserDetails[email] || {};
+
+                    if(details.name && details.name !== "No provisto" && details.name !== "N/A") currentUser.name = details.name;
+                    currentUser.downloadedPrograms = globalUser.downloadedPrograms || currentUser.downloadedPrograms || [];
+                    currentUser.downloadedFiles = globalUser.downloadedFiles || currentUser.downloadedFiles || [];
+
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    updateAllUI(); 
+                }
+                console.log("> Datos del Excel sincronizados correctamente.");
+            }
+        } catch (e) { 
+            console.error("Error al cargar la data global del Excel:", e); 
+            showNotif('Modo Sin Conexión', 'No se pudo conectar a la base de datos.', 'error');
+        }
+    }
+
+    // 2. Sincronizar hacia Google Sheets
+    async function syncUserProgressToExcel() {
+        if(!currentUser) return;
+        
+        // Generar historial legible con los nombres de los programas
+        let nombresDescargados = [];
+        if (currentUser.downloadedPrograms && currentUser.downloadedPrograms.length > 0) {
+            nombresDescargados = currentUser.downloadedPrograms.map(id => {
+                const prog = DESCARGAS_PROGRAMAS.find(p => p.id === id);
+                return prog ? prog.name : 'Desconocido';
+            });
+        }
+        const historialNombresStr = nombresDescargados.join(', ');
+        
+        // Incluir el historial en el objeto para que se guarde
+        const userPayload = { ...currentUser, historial_descargas: historialNombresStr };
+
+        const email = encodeURIComponent(currentUser.email.toLowerCase());
+        const userData = encodeURIComponent(JSON.stringify(userPayload));
+        const historialParam = encodeURIComponent(historialNombresStr);
+        
+        // Enviamos la petición. Añadimos el parámetro "historial" por si quieres usarlo en una columna aparte en Apps Script
+        await fetch(SCRIPT_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            body: `action=update_user&email=${email}&userData=${userData}&historial=${historialParam}`, 
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' } 
+        });
+    }
+
+    // 3. Interfaz de Login/Registro
+    function switchAuthTab(m) { 
+        const isReg = m === 'register'; 
+        document.getElementById('nameField').classList.toggle('hidden', !isReg); 
+        document.getElementById('authModalTitle').innerText = isReg ? 'Crear Cuenta Libre' : 'Acceso (Alumnos)'; 
+        document.getElementById('authSubText').innerText = isReg ? 'Crea una cuenta para interactuar con la web.' : 'Ingresa tu correo y contraseña para acceder.'; 
+        document.getElementById('authBtnLabel').innerText = isReg ? 'Registrarme' : 'Verificar y Acceder'; 
+        document.getElementById('authBtnIcon').className = isReg ? 'fas fa-user-plus' : 'fas fa-sign-in-alt';
+
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        if (isReg) {
+            tabRegister.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-all";
+            tabLogin.className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+        } else {
+            tabLogin.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-all";
+            tabRegister.className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-500 hover:text-slate-700 transition-all";
+        }
+    }
+
+    document.getElementById('authForm').onsubmit = async (e) => { 
+        e.preventDefault(); 
+        const btn = document.getElementById('authSubmitBtn'); const label = document.getElementById('authBtnLabel'); const icon = document.getElementById('authBtnIcon');
+        const errBox = document.getElementById('authErrorMessage'); const errText = document.getElementById('authErrorText');
+        const originalText = label.innerText; errBox.classList.add('hidden');
+        btn.disabled = true; icon.className = "fas fa-spinner fa-spin"; label.innerText = "PROCESANDO...";
+
+        const email = document.getElementById('authEmail').value.trim().toLowerCase();
+        let inputName = document.getElementById('authName').value.trim();
+        const inputPassword = document.getElementById('authPassword').value;
+        const isRegistration = !document.getElementById('nameField').classList.contains('hidden');
+
+        try {
+            if (isRegistration) {
+                if (!inputPassword) {
+                    errText.innerText = "ACCESO DENEGADO: Debes crear una contraseña.";
+                    errBox.classList.remove('hidden'); showNotif('Falta contraseña', 'Crea una contraseña.', 'error');
+                    btn.disabled = false; icon.className = "fas fa-user-plus"; label.innerText = originalText; return;
+                }
+                if (!inputName) inputName = email.split('@')[0];
+                currentUser = { name: inputName, email: email, password: inputPassword, downloadedPrograms: [], downloadedFiles: [] }; 
+                await fetch(`${SCRIPT_URL}?action=register&name=${encodeURIComponent(currentUser.name)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(inputPassword)}`, { mode: 'no-cors' });
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                updateAllUI(); closeModal('authModal'); showNotif('¡Bienvenido!', `Hola ${inputName}, registro exitoso.`);
+            } else {
+                if (!inputPassword) {
+                    errText.innerText = "ACCESO DENEGADO: Debes ingresar tu contraseña.";
+                    errBox.classList.remove('hidden'); showNotif('Falta contraseña', 'Ingresa tu contraseña.', 'error');
+                    btn.disabled = false; icon.className = "fas fa-sign-in-alt"; label.innerText = originalText; return;
+                }
+
+                let globalUser = dbUsers[email];
+                if (typeof globalUser === 'string') { try { globalUser = JSON.parse(globalUser); } catch(e) { globalUser = null; } }
+                globalUser = globalUser || {};
+                let details = dbUserDetails[email] || {};
+
+                const hasGlobal = Object.keys(globalUser).length > 0;
+                const hasDetails = details.name && details.name !== "No provisto" && details.name !== "N/A";
+
+                if (!hasGlobal && !hasDetails) {
+                    errText.innerText = "ACCESO DENEGADO: El correo ingresado no se encuentra registrado.";
+                    errBox.classList.remove('hidden'); showNotif('Acceso Denegado', 'Correo no encontrado.', 'error');
+                    btn.disabled = false; icon.className = "fas fa-sign-in-alt"; label.innerText = originalText; return;
+                }
+
+                if (globalUser.password && globalUser.password !== inputPassword) {
+                    errText.innerText = "ACCESO DENEGADO: Contraseña incorrecta.";
+                    errBox.classList.remove('hidden'); showNotif('Acceso Denegado', 'Contraseña incorrecta.', 'error');
+                    btn.disabled = false; icon.className = "fas fa-sign-in-alt"; label.innerText = originalText; return;
+                }
+
+                currentUser = { 
+                    name: details.name || globalUser.name || email.split('@')[0], 
+                    email: email, 
+                    password: inputPassword, 
+                    downloadedPrograms: globalUser.downloadedPrograms || [],
+                    downloadedFiles: globalUser.downloadedFiles || [] 
+                }; 
+                
+                localStorage.setItem('user', JSON.stringify(currentUser)); 
+                closeModal('authModal'); updateAllUI(); 
+                syncUserProgressToExcel(); 
+                showNotif('¡Bienvenido!', `Hola ${currentUser.name}, sesión iniciada.`);
+            }
+            document.getElementById('authForm').reset();
+        } catch (err) {
+            btn.disabled = false; icon.className = "fas fa-sign-in-alt"; label.innerText = originalText;
+            showNotif('Modo Local', 'Inicio de sesión sin conexión a BD.', 'info');
+            if (!inputName) inputName = email.split('@')[0];
+            currentUser = { name: inputName, email: email, password: inputPassword, downloadedPrograms: [], downloadedFiles: [] };
+            localStorage.setItem('user', JSON.stringify(currentUser)); updateAllUI(); closeModal('authModal');
+        } finally {
+            btn.disabled = false; icon.className = "fas fa-sign-in-alt"; label.innerText = originalText;
+        }
+    };
+
+    function logoutUser() { 
+        localStorage.removeItem('user'); currentUser = null; 
+        updateAllUI(); showNotif('Sesión Cerrada', 'Has cerrado sesión correctamente.');
+    }
+
+    function updateAllUI() {
+        const adminBtnContainer = document.getElementById('adminButtonContainer');
+        const userMenu = document.getElementById('userTopMenu');
+        const rightSidebar = document.getElementById('pageRightSidebar');
+
+        if (!currentUser) {
+            if (adminBtnContainer) {
+                adminBtnContainer.classList.add('hidden');
+                adminBtnContainer.classList.remove('flex');
+            }
+            // Menú Superior Simplificado
+            userMenu.innerHTML = `
+                <button onclick="openModal('authModal'); switchAuthTab('login');" class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-colors shadow-sm">
+                    <i class="fas fa-user text-[#2db8ce]"></i> Ingresar
+                </button>
+            `;
+            // Barra Lateral Derecha
+            if(rightSidebar) {
+                rightSidebar.innerHTML = `
+                    <!-- Tarjeta del Profesor (Arriba) -->
+                    <div class="bg-[#0f172a] rounded-2xl border border-white/10 shadow-lg p-6 mb-6 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-32 h-32 bg-[#2db8ce] opacity-20 rounded-full blur-2xl pointer-events-none"></div>
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-white/10 pb-2 relative z-10">Profesor Asignado</h3>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#2db8ce] shadow-md flex-shrink-0 bg-slate-800">
+                                <img src="https://i.postimg.cc/rFM1MX74/unnamed.png" alt="Prof. Pablo Cedeño" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <p class="font-black text-white text-base leading-tight">Ing. Pablo Cedeño</p>
+                                <p class="text-[10px] text-[#2db8ce] font-bold uppercase tracking-widest mt-1">Instructor Principal</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta del Estudiante (Debajo - Gris Oscuro) -->
+                    <div class="bg-slate-800 rounded-2xl border border-slate-700 shadow-md p-6">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-700 pb-2">Perfil de Estudiante</h3>
+                        <div class="flex items-center gap-4 mb-5">
+                            <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 shadow-inner">
+                                <i class="fas fa-user text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="font-black text-white text-sm leading-tight">Invitado</p>
+                                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Inicia sesión para descargar</p>
+                            </div>
+                        </div>
+                        <button onclick="openModal('authModal'); switchAuthTab('login');" class="w-full bg-[#2db8ce] hover:bg-white hover:text-[#0f172a] text-[#0f172a] py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-md flex items-center justify-center gap-2">
+                            <i class="fas fa-sign-in-alt"></i> Ingresar a la plataforma
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            if (adminBtnContainer) {
+                if (currentUser.email === 'pablocdno@gmail.com') {
+                    adminBtnContainer.classList.remove('hidden'); adminBtnContainer.classList.add('flex');
+                } else {
+                    adminBtnContainer.classList.add('hidden'); adminBtnContainer.classList.remove('flex');
+                }
+            }
+            // Menú Superior Simplificado
+            userMenu.innerHTML = `
+                <button onclick="logoutUser()" class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 hover:text-white hover:bg-red-500 text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm">
+                    Salir <i class="fas fa-sign-out-alt"></i>
+                </button>
+            `;
+            // Barra Lateral Derecha
+            if(rightSidebar) {
+                const initial = currentUser.name.charAt(0).toUpperCase();
+                const downCount = currentUser.downloadedPrograms ? currentUser.downloadedPrograms.length : 0;
+                
+                // Nuevos datos extraídos
+                const userEmail = currentUser.email.toLowerCase();
+                
+                // Extraer el teléfono de la pestaña "Mis Cursos" (dbUserCourses)
+                let userPhone = 'No registrado';
+                if (dbUserCourses && dbUserCourses[userEmail]) {
+                    const coursesData = dbUserCourses[userEmail];
+                    if (Array.isArray(coursesData) && coursesData.length > 0) {
+                        userPhone = coursesData[0].telefono || coursesData[0].phone || coursesData[0].Telefono || 'No registrado';
+                    } else if (typeof coursesData === 'object') {
+                        userPhone = coursesData.telefono || coursesData.phone || coursesData.Telefono || 'No registrado';
+                    }
+                }
+                // Fallback a dbUserDetails si no se encuentra en "Mis Cursos"
+                if (userPhone === 'No registrado' && dbUserDetails && dbUserDetails[userEmail]) {
+                    userPhone = dbUserDetails[userEmail].telefono || dbUserDetails[userEmail].phone || dbUserDetails[userEmail].Telefono || 'No registrado';
+                }
+
+                const userProfileText = userEmail === 'pablocdno@gmail.com' ? 'Administrador' : 'Alumno Activo';
+                const flagEmoji = getFlagEmoji(userCountry);
+                
+                // Generar lista de programas descargados
+                let downloadedListHTML = '';
+                if (currentUser.downloadedPrograms && currentUser.downloadedPrograms.length > 0) {
+                    const downloadedNames = currentUser.downloadedPrograms.map(id => {
+                        const prog = DESCARGAS_PROGRAMAS.find(p => p.id === id);
+                        return prog ? prog.name : 'Programa Desconocido';
+                    });
+                    
+                    downloadedListHTML = `
+                        <div class="mt-4 pt-4 border-t border-slate-700">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Historial de descargas</p>
+                            <ul class="text-xs text-slate-300 space-y-2 max-h-32 overflow-y-auto hide-scrollbar pr-1">
+                                ${downloadedNames.map(name => `<li class="flex items-start gap-2 leading-tight"><i class="fas fa-check-circle text-[#2db8ce] text-[12px] mt-0.5 shadow-sm rounded-full bg-[#0f172a]"></i> <span>${name}</span></li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    downloadedListHTML = `
+                        <div class="mt-4 pt-4 border-t border-slate-700 text-center">
+                            <p class="text-[10px] text-slate-500 italic">Aún no has descargado ningún programa.</p>
+                        </div>
+                    `;
+                }
+
+                // Generar lista de cursos activos desde la pestaña "Mis Cursos"
+                let activeCoursesHTML = '';
+                let userCoursesList = [];
+                if (dbUserCourses && dbUserCourses[userEmail]) {
+                    let coursesData = dbUserCourses[userEmail];
+                    
+                    // Asegurarnos de poder iterar los datos
+                    if (typeof coursesData === 'string') { 
+                        try { coursesData = JSON.parse(coursesData); } catch(e){ coursesData = [coursesData]; } 
+                    }
+
+                    // Soporte para arreglos u objetos individuales de la base de datos
+                    if (Array.isArray(coursesData)) {
+                        coursesData.forEach(c => {
+                            let courseVal = null;
+                            if (typeof c === 'string') {
+                                courseVal = c;
+                            } else if (typeof c === 'object') {
+                                // Buscar coincidencias comunes de columnas de la pestaña "Mis Cursos"
+                                courseVal = c.curso || c.Curso || c.Cursos || c.cursos || c.course || c.nombre || c.Nombre || c['Mis Cursos'] || c['mis cursos'] || c['Mis cursos'];
+                                
+                                // Si las columnas tienen otro nombre, intenta tomar el primer valor de texto
+                                if (!courseVal) {
+                                    const vals = Object.values(c).filter(v => typeof v === 'string' && v.trim() !== '');
+                                    if (vals.length > 0) courseVal = vals[0];
+                                }
+                            }
+                            
+                            if (courseVal) {
+                                // Si hay varios cursos separados por coma
+                                if (typeof courseVal === 'string' && courseVal.includes(',')) {
+                                    userCoursesList.push(...courseVal.split(',').map(s => s.trim()));
+                                } else {
+                                    userCoursesList.push(courseVal);
+                                }
+                            }
+                        });
+                    } else if (typeof coursesData === 'object') {
+                        const cName = coursesData.curso || coursesData.Curso || coursesData.Cursos || coursesData.cursos || coursesData.course || coursesData.nombre || coursesData.Nombre || coursesData['Mis Cursos'] || coursesData['mis cursos'] || coursesData['Mis cursos'];
+                        if (cName) {
+                            if (typeof cName === 'string' && cName.includes(',')) {
+                                userCoursesList.push(...cName.split(',').map(s => s.trim()));
+                            } else {
+                                userCoursesList.push(cName);
+                            }
+                        }
+                    }
+                }
+                
+                // Limpiar vacíos y eliminar duplicados
+                userCoursesList = [...new Set(userCoursesList.filter(Boolean))]; 
+
+                if (userCoursesList.length > 0) {
+                    activeCoursesHTML = `
+                        <div class="mt-4 pt-4 border-t border-slate-700">
+                            <div class="flex justify-between items-center mb-3">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cursos Activos</p>
+                                <span class="bg-[#2db8ce]/20 text-[#2db8ce] text-[9px] font-black px-2 py-0.5 rounded border border-[#2db8ce]/30 shadow-sm">${userCoursesList.length}</span>
+                            </div>
+                            <div class="flex flex-col gap-2 max-h-32 overflow-y-auto hide-scrollbar pr-1">
+                                ${userCoursesList.map(c => `
+                                    <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-2.5 flex items-center gap-3 hover:bg-slate-800 transition-colors cursor-default shadow-sm">
+                                        <div class="w-7 h-7 rounded border border-[#2db8ce]/30 bg-[#2db8ce]/10 text-[#2db8ce] flex items-center justify-center text-xs flex-shrink-0 shadow-inner">
+                                            <i class="fas fa-laptop-code"></i>
+                                        </div>
+                                        <span class="text-xs text-slate-300 font-bold leading-tight line-clamp-2">${c}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    activeCoursesHTML = `
+                        <div class="mt-4 pt-4 border-t border-slate-700 text-center">
+                            <p class="text-[10px] text-slate-500 italic">No tienes cursos activos actualmente.</p>
+                        </div>
+                    `;
+                }
+
+                rightSidebar.innerHTML = `
+                    <!-- Tarjeta del Profesor (Arriba) -->
+                    <div class="bg-[#0f172a] rounded-2xl border border-white/10 shadow-lg p-6 mb-6 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-32 h-32 bg-[#2db8ce] opacity-20 rounded-full blur-2xl pointer-events-none"></div>
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-white/10 pb-2 relative z-10">Profesor Asignado</h3>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#2db8ce] shadow-md flex-shrink-0 bg-slate-800">
+                                <img src="https://i.postimg.cc/rFM1MX74/unnamed.png" alt="Prof. Pablo Cedeño" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <p class="font-black text-white text-base leading-tight">Ing. Pablo Cedeño</p>
+                                <p class="text-[10px] text-[#2db8ce] font-bold uppercase tracking-widest mt-1">Instructor Principal</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta del Estudiante (Debajo - Gris Oscuro) -->
+                    <div class="bg-slate-800 rounded-2xl border border-slate-700 shadow-md p-6">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-700 pb-2">Perfil de Estudiante</h3>
+                        
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-[#2db8ce]/20 text-[#2db8ce] flex items-center justify-center font-black text-xl border border-[#2db8ce]/30 flex-shrink-0">
+                                ${initial}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-black text-white text-sm leading-tight line-clamp-1">${currentUser.name}</p>
+                                <p class="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-500/20 mt-1">
+                                    <i class="fas fa-user-shield"></i> ${userProfileText}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Datos del Usuario (NUEVO BLOQUE) -->
+                        <div class="bg-slate-900/50 rounded-xl p-3.5 border border-slate-700 mb-5 space-y-2.5">
+                            <div class="flex items-center gap-3 text-[10px] text-slate-300">
+                                <div class="w-4 flex justify-center text-[#2db8ce]"><i class="fas fa-envelope"></i></div>
+                                <span class="truncate" title="${currentUser.email}">${currentUser.email}</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-[10px] text-slate-300">
+                                <div class="w-4 flex justify-center text-[#2db8ce]"><i class="fas fa-phone"></i></div>
+                                <span>${userPhone}</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-[10px] text-slate-300">
+                                <div class="w-4 flex justify-center text-[#2db8ce]"><i class="fas fa-map-marker-alt"></i></div>
+                                <span class="truncate" title="${userCountry}">${userCountry} <span class="text-xs ml-1">${flagEmoji}</span></span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-slate-900/50 p-3.5 rounded-xl border border-slate-700">
+                            <span class="text-xs font-bold text-slate-300">Programas descargados:</span>
+                            <span class="text-lg font-black text-[#2db8ce]">${downCount}</span>
+                        </div>
+                        
+                        ${downloadedListHTML}
+                        ${activeCoursesHTML}
+                    </div>
+                `;
+            }
+        }
+        
+        // Repinta los candados y botones de descargas
+        filterPrograms();
+    }
+
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+    async function initVisitorInfo() {
+        const services = [ 'https://get.geojs.io/v1/ip/geo.json', 'https://api.country.is', 'https://ipapi.co/json/' ];
+        for (const service of services) {
+            try {
+                const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const res = await fetch(service, { signal: controller.signal }); clearTimeout(timeoutId);
+                if (!res.ok) continue; const data = await res.json();
+                
+                let rawCountryName = data.country || data.countryName || data.country_name || "";
+                let region = data.region || data.regionName || data.stateProv || data.city || "";
+
+                if (rawCountryName && rawCountryName !== "Desconocido") {
+                    let baseName = countryToSpanish[rawCountryName.toLowerCase()] || rawCountryName;
+                    if (baseName === "Venezuela") { userCountry = region ? `Venezuela (${region})` : "Venezuela"; } else { userCountry = baseName; }
+                    return;
+                }
+            } catch (e) { console.warn(`Fallo ${service}`); }
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        // La variable currentUser ya se cargó desde localStorage al inicio del script,
+        // manteniendo la sesión intacta tras recargar.
+        updateAllUI();
+        renderPrograms(DESCARGAS_PROGRAMAS);
+        
+        // Pequeño aviso visual para confirmar que la sesión sobrevivió al reinicio
+        if (currentUser) {
+            setTimeout(() => {
+                showNotif('Sesión Activa', `Bienvenido de nuevo, ${currentUser.name.split(' ')[0]}`, 'info');
+            }, 800);
+        }
+        
+        // 1. Obtener ubicación
+        await initVisitorInfo();
+        
+        // 2. Cargar Base de datos completa para que Login funcione con el Excel
+        showNotif('Conectando', 'Sincronizando base de datos...', 'info');
+        await loadData();
+        
+        // 3. Cargar los conteos de programas del Excel
+        fetchWithRetry(`${SCRIPT_URL}?action=get_downloads`).then(res => res.json()).then(data => {
+            if (data && data.counts) {
+                programCounts = data.counts; 
+                DESCARGAS_PROGRAMAS.forEach(prog => {
+                    const countEl = document.getElementById(`progCount-${prog.id}`);
+                    if(countEl) countEl.innerText = programCounts[`${prog.name} ${prog.version}`] || 0;
+                });
+            }
+        }).catch(() => {});
+        
+        if(window.lucide) lucide.createIcons();
+    });
+</script>
+</body> 
+</html>
